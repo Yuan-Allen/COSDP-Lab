@@ -21,22 +21,28 @@
 #include "rdt_sender.h"
 #include "rdt_struct.h"
 
-const double TIMEOUT = 0.3; // second
-const int HEADER_SIZE = 7;  // byte
+static const double TIMEOUT = 0.3; // second
+static const int HEADER_SIZE =
+    sizeof(short) + sizeof(int) + sizeof(char); // 7 byte
+static const char PAYLOAD_SIZE =
+    RDT_PKTSIZE - HEADER_SIZE; // 注意类型是char，只需1byte
 
-std::vector<message> message_buffer;
-const int BUFFER_SIZE = 10000;
+static std::vector<message> message_buffer;
+static const int BUFFER_SIZE = 10000;
 
-std::vector<packet *> packet_window;
-const int WINDOW_SIZE = 10;
+static std::vector<packet> packet_window;
+static const int WINDOW_SIZE = 10;
 
-int message_next; // 下一个从upper layer收到的包编号
-int message_seq;  // 确认receiver已收到的的包编号
-int message_num;  // 在buffer里还没发出去的message数量
+static int packet_num;           // window里的packet数目
+static int packet_seq;           // 下一个进入window的packet编号
+static int packet_next_send_seq; //下一个要send的packet编号
+static int message_next;         // 下一个从upper layer收到的消息编号
+static int message_seq;          // 当前处理的消息编号
+int message_cursor; // message里data的cursor（发送到第几byte了）
 
-short InternetChecksum(packet *pkt) {
+static short InternetChecksum(packet *pkt) {
     unsigned long checksum = 0;                  // unsigned使用逻辑右移
-    for (int i = 2; i < RDT_PKTSIZE; ++i) {      // 跳过前两个byte
+    for (int i = 2; i < RDT_PKTSIZE; i += 2) {   // 跳过前两个byte
         checksum += *(short *)(&(pkt->data[i])); // short为16bit
     }
     while (checksum >> 16) {
@@ -46,17 +52,77 @@ short InternetChecksum(packet *pkt) {
     return ~checksum;
 }
 
-// 把message从buffer中取出，发包装满window
-void FillWindow() {}
+// 根据message和cursor填pkt
+void FillPacket(packet *pkt, message msg) {
+    char size = 0; // char for 1 byte
+    if (msg.size > message_cursor + PAYLOAD_SIZE) {
+        // msg剩余size很大，可以装满一个packet并且还有剩余
+        size = PAYLOAD_SIZE;
+    } else if (msg.size > message_cursor) {
+        // msg剩余size可以用一个packet装完
+        size = msg.size - message_cursor;
+    } else {
+        ASSERT(false);
+    }
+
+    memcpy(pkt->data + sizeof(short), &packet_seq,
+           sizeof(packet_seq)); // packet编号
+    memcpy(pkt->data + sizeof(short) + sizeof(packet_seq), &size,
+           sizeof(size)); // payload size
+    memcpy(pkt->data + sizeof(short) + sizeof(packet_seq) + sizeof(size),
+           msg.data + message_cursor, size);
+    short checksum = InternetChecksum(pkt);
+    memcpy(pkt->data, &checksum, sizeof(checksum));
+}
+
+// 把window里该发的packets都发出去
+void SendPackets() {
+    packet pkt;
+    while (packet_next_send_seq < packet_seq) {
+        memcpy(&pkt, &(packet_window[packet_next_send_seq % WINDOW_SIZE]),
+               sizeof(packet));
+        Sender_ToLowerLayer(&pkt);
+        packet_next_send_seq++;
+    }
+}
+
+// 把message从buffer中取出，装满window并发包
+void FillWindow() {
+    message msg = message_buffer.at(message_seq % BUFFER_SIZE);
+    packet pkt;
+    while (packet_num < WINDOW_SIZE && message_seq < message_next) {
+        FillPacket(&pkt, msg);
+        memcpy(&(packet_window[packet_seq % WINDOW_SIZE]), &pkt, sizeof(pkt));
+        if (msg.size > message_cursor + PAYLOAD_SIZE) {
+            message_cursor += PAYLOAD_SIZE;
+        } else if (msg.size > message_cursor) {
+            message_seq++;
+            if (message_seq < message_next) {
+                // 取下一个msg，为后续可能的循环做准备
+                msg = message_buffer.at(message_seq % BUFFER_SIZE);
+            }
+            message_cursor = 0;
+        } else {
+            ASSERT(false);
+        }
+        packet_seq++;
+        packet_num++;
+    }
+
+    SendPackets();
+}
 
 /* sender initialization, called once at the very beginning */
 void Sender_Init() {
     fprintf(stdout, "At %.2fs: sender initializing ...\n", GetSimulationTime());
     message_buffer.assign(BUFFER_SIZE, message{.size = 0, .data = nullptr});
-    packet_window.assign(WINDOW_SIZE, nullptr);
+    packet_window.assign(WINDOW_SIZE, packet());
+    packet_num = 0;
+    packet_seq = 0;
+    packet_next_send_seq = 0;
     message_next = 0;
     message_seq = 0;
-    message_num = 0;
+    message_cursor = 0;
 }
 
 /* sender finalization, called once at the very end.
@@ -65,14 +131,18 @@ void Sender_Init() {
    memory you allocated in Sender_init(). */
 void Sender_Final() {
     fprintf(stdout, "At %.2fs: sender finalizing ...\n", GetSimulationTime());
+    for (message &msg : message_buffer) {
+        if (msg.size != 0) {
+            delete[] msg.data;
+            msg.data = nullptr;
+            msg.size = 0;
+        }
+    }
 }
 
 /* event handler, called when a message is passed from the upper layer at the
    sender */
 void Sender_FromUpperLayer(struct message *msg) {
-    // /* maximum payload size */
-    // int maxpayload_size = RDT_PKTSIZE - header_size;
-
     /* put message in buffer first */
     int buffer_index = message_next % BUFFER_SIZE;
     if (message_buffer[buffer_index].size != 0) {
@@ -88,48 +158,23 @@ void Sender_FromUpperLayer(struct message *msg) {
            msg->size);
 
     message_next++;
-    message_num++;
 
     if (Sender_isTimerSet()) {
         return;
     }
 
     Sender_StartTimer(TIMEOUT);
-
-    // /* split the message if it is too big */
-
-    // /* reuse the same packet data structure */
-    // packet pkt;
-
-    // /* the cursor always points to the first unsent byte in the message */
-    // int cursor = 0;
-
-    // while (msg->size - cursor > maxpayload_size) {
-    //     /* fill in the packet */
-    //     pkt.data[0] = maxpayload_size;
-    //     memcpy(pkt.data + header_size, msg->data + cursor, maxpayload_size);
-
-    //     /* send it out through the lower layer */
-    //     Sender_ToLowerLayer(&pkt);
-
-    //     /* move the cursor */
-    //     cursor += maxpayload_size;
-    // }
-
-    // /* send out the last packet */
-    // if (msg->size > cursor) {
-    //     /* fill in the packet */
-    //     pkt.data[0] = msg->size - cursor;
-    //     memcpy(pkt.data + header_size, msg->data + cursor, pkt.data[0]);
-
-    //     /* send it out through the lower layer */
-    //     Sender_ToLowerLayer(&pkt);
-    // }
+    FillWindow();
 }
 
 /* event handler, called when a packet is passed from the lower layer at the
    sender */
-void Sender_FromLowerLayer(struct packet *pkt) {}
+void Sender_FromLowerLayer(struct packet *pkt) {
+    if (packet_num > 0) {
+        packet_num--;
+        FillWindow();
+    }
+}
 
 /* event handler, called when the timer expires */
 void Sender_Timeout() {}
