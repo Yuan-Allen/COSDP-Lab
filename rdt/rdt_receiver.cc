@@ -1,16 +1,12 @@
 /*
  * FILE: rdt_receiver.cc
  * DESCRIPTION: Reliable data transfer receiver.
- * NOTE: This implementation assumes there is no packet loss, corruption, or
- *       reordering.  You will need to enhance it to deal with all these
- *       situations.  In this implementation, the packet format is laid out as
+ * NOTE: dIn this implementation, the packet format is laid out as
  *       the following:
  *
- *       |<-  1 byte  ->|<-             the rest            ->|
- *       | payload size |<-             payload             ->|
+ *       |<-2 byte->|<-4 byte->|<-the rest->|
+ *       | checksum |   ack    |   other    |
  *
- *       The first byte of each packet indicates the size of the payload
- *       (excluding this single-byte header)
  */
 
 #include <stdio.h>

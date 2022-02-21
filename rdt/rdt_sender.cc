@@ -1,16 +1,12 @@
 /*
  * FILE: rdt_sender.cc
  * DESCRIPTION: Reliable data transfer sender.
- * NOTE: This implementation assumes there is no packet loss, corruption, or
- *       reordering.  You will need to enhance it to deal with all these
- *       situations.  In this implementation, the packet format is laid out as
+ * NOTE: In this implementation, the packet format is laid out as
  *       the following:
  *
- *       |<-  1 byte  ->|<-             the rest            ->|
- *       | payload size |<-             payload             ->|
+ *       |<-2 byte->|<-4 byte->|<- 1 byte ->|<-the rest->|
+ *       | checksum |packet seq|payload size|  payload   |
  *
- *       The first byte of each packet indicates the size of the payload
- *       (excluding this single-byte header)
  */
 
 #include <stdio.h>
@@ -35,7 +31,7 @@ static const int WINDOW_SIZE = 10;
 
 static int packet_num;           // window里的packet数目
 static int packet_seq;           // 下一个进入window的packet编号
-static int packet_next_send_seq; //下一个要send的packet编号
+static int packet_next_send_seq; // 下一个要send的packet编号
 static int message_next;         // 下一个从upper layer收到的消息编号
 static int message_seq;          // 当前处理的消息编号
 int message_cursor; // message里data的cursor（发送到第几byte了）
