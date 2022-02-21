@@ -2,6 +2,8 @@
 
 袁航宇 518030910096
 
+allen_yuan@sjtu.edu.cn
+
 #### Sender
 
 Sender使用滑动窗口，在窗口满时使用buffer接收上层传来的message存住。
