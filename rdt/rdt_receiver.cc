@@ -49,6 +49,9 @@ static short InternetChecksum(packet *pkt) {
 
 void SendAck(int ack) {
     packet ack_pkt;
+    memcpy(ack_pkt.data + sizeof(short), &ack, sizeof(ack));
+    short checksum = InternetChecksum(&ack_pkt);
+    memcpy(ack_pkt.data, &checksum, sizeof(checksum));
     Receiver_ToLowerLayer(&ack_pkt);
 }
 
@@ -94,11 +97,11 @@ void Receiver_FromLowerLayer(struct packet *pkt) {
             memcpy(&(packet_window[packet_seq % WINDOW_SIZE]), pkt->data,
                    RDT_PKTSIZE);
         }
-        SendAck(next_ack - 1);
+        SendAck(next_ack);
         return;
     } else if (packet_seq != next_ack) {
         // packet不在window范围内，不接收
-        SendAck(next_ack - 1);
+        SendAck(next_ack);
         return;
     } else {
         ASSERT(packet_seq == next_ack);

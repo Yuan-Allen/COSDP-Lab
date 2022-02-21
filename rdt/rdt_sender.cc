@@ -40,6 +40,8 @@ static int message_next;         // 下一个从upper layer收到的消息编号
 static int message_seq;          // 当前处理的消息编号
 int message_cursor; // message里data的cursor（发送到第几byte了）
 
+int ack_last_receive;
+
 static short InternetChecksum(packet *pkt) {
     unsigned long checksum = 0;                  // unsigned使用逻辑右移
     for (int i = 2; i < RDT_PKTSIZE; i += 2) {   // 跳过前两个byte
@@ -123,6 +125,7 @@ void Sender_Init() {
     message_next = 0;
     message_seq = 0;
     message_cursor = 0;
+    ack_last_receive = 0; //初始值是0代表receiver期待的下一个包是编号0
 }
 
 /* sender finalization, called once at the very end.
@@ -170,11 +173,30 @@ void Sender_FromUpperLayer(struct message *msg) {
 /* event handler, called when a packet is passed from the lower layer at the
    sender */
 void Sender_FromLowerLayer(struct packet *pkt) {
-    if (packet_num > 0) {
-        packet_num--;
+    short checksum = 0;
+    memcpy(&checksum, pkt->data, sizeof(checksum));
+    if (checksum != InternetChecksum(pkt)) {
+        return;
+    }
+
+    int ack = 0;
+    memcpy(&ack, pkt->data + sizeof(checksum), sizeof(ack));
+
+    if (ack > ack_last_receive && ack <= packet_seq) {
+        Sender_StartTimer(TIMEOUT);
+        packet_num -= (ack - ack_last_receive);
+        ack_last_receive = ack;
         FillWindow();
+    }
+
+    if (ack == packet_seq) {
+        Sender_StopTimer();
     }
 }
 
 /* event handler, called when the timer expires */
-void Sender_Timeout() {}
+void Sender_Timeout() {
+    Sender_StartTimer(TIMEOUT);
+    packet_next_send_seq = ack_last_receive;
+    FillWindow();
+}
