@@ -113,6 +113,6 @@ void *payload = rte_pktmbuf_mtod_offset(mbuf, void*, sizeof(struct rte_ether_hdr
 memcpy(payload, "test", 4);
 ```
 
-![wireshark](.\wireshark.png)
+![wireshark](./wireshark.png)
 
 可以看到 wireshark 抓到了自己设置的 ip 地址发送/收到的 UDP 包，data 大小 4bytes，下方可看到内容是 test。
