@@ -10,13 +10,13 @@ allen_yuan@sjtu.edu.cn
 
 整体如下：
 
-![task1](Task1\task1.png)
+![task1](./Task1/task1.png)
 
 虚拟机截图不是很清晰，带系统时间的细节截图如下：
 
-![task1_h1](Task1\task1_h1.png)
+![task1_h1](./Task1/task1_h1.png)
 
-![task1_h2](Task1\task1_h2.png)
+![task1_h2](./Task1/task1_h2.png)
 
 ## Part2：三种限速方式
 
@@ -46,11 +46,11 @@ s1-eth2: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
 
 h2:
 
-![task2_1_h2](Task2\task2_1_h2.png)
+![task2_1_h2](./Task2/task2_1_h2.png)
 
 h1:
 
-![task2_1_h1](Task2\task2_1_h1.png)
+![task2_1_h1](./Task2/task2_1_h1.png)
 
 可以看见，带宽为5.71Mbits/sec，得到了有效的限速。抖动为0.011ms。由于设置的丢包机制，丢包率较高，为46%。
 
@@ -74,13 +74,13 @@ other_config        : {max-rate="5000000"}
 
 根据文档操作，得到h3：
 
-![task2_2_h3](Task2\task2_2_h3.png)
+![task2_2_h3](./Task2/task2_2_h3.png)
 
 h4:
 
-![task2_2_h4_1](Task2\task2_2_h4_1.png)
+![task2_2_h4_1](./Task2/task2_2_h4_1.png)
 
-![task2_2_h4_2](Task2\task2_2_h4_2.png)
+![task2_2_h4_2](./Task2/task2_2_h4_2.png)
 
 可得到带宽为4.86Mbits/sec，抖动为58.153ms，丢包率为0%。
 
@@ -104,15 +104,15 @@ ovs-ofctl dump-flows s1 -O openflow13
 
 h5:
 
-![task2_3_h5_1](Task2\task2_3_h5_1.png)
+![task2_3_h5_1](./Task2/task2_3_h5_1.png)
 
-![task2_3_h5_2](Task2\task2_3_h5_2.png)
+![task2_3_h5_2](./Task2/task2_3_h5_2.png)
 
 h6:
 
-![task2_3_h6_1](Task2\task2_3_h6_1.png)
+![task2_3_h6_1](./Task2/task2_3_h6_1.png)
 
-![task2_3_h6_2](Task2\task2_3_h6_2.png)
+![task2_3_h6_2](./Task2/task2_3_h6_2.png)
 
 可得到带宽为5.22Mbits/sec，抖动为15.707ms，丢包率为49%。
 
@@ -149,23 +149,23 @@ ovs-vsctl set port s1-eth1 qos=@newqos -- \
 
 h2：
 
-![task3_h2](Task3\task3_h2.png)
+![task3_h2](./Task3/task3_h2.png)
 
 
 
 h3：
 
-![task3_h3](Task3\task3_h3.png)
+![task3_h3](./Task3/task3_h3.png)
 
 
 
 h4：
 
-![task3_h4](Task3\task3_h4.png)
+![task3_h4](./Task3/task3_h4.png)
 
 h1：
 
-![task3_h1](Task3\task3_h1.png)
+![task3_h1](./Task3/task3_h1.png)
 
 可以看到，h2，h3，h4一开始带宽是10Mbits/sec，后来由于限速带宽开始立即下降，最终总和为10Mbits/sec左右，且比例为4:3:3，较为均匀。
 
@@ -197,19 +197,19 @@ ovs-ofctl -O OpenFlow13 add-flow s1 in_port="s1-eth4",actions=set_queue:2,output
 
 h2：
 
-![task4_h2](Task4\task4_h2.png)
+![task4_h2](./Task4/task4_h2.png)
 
 h3：
 
-![task4_h3](Task4\task4_h3.png)
+![task4_h3](./Task4/task4_h3.png)
 
 h4：
 
-![task4_h4](Task4\task4_h4.png)
+![task4_h4](./Task4/task4_h4.png)
 
 h1：
 
-![task4_h1](Task4\task4_h1.png)
+![task4_h1](./Task4/task4_h1.png)
 
 可以得到带宽如下：
 
